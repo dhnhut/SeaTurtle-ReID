@@ -10,20 +10,29 @@ class SeaTurtleDataset(Dataset):
     def __init__(
         self, annotations_file, img_dir, transform=None, target_transform=None
     ):
-        self.img_labels = pd.read_csv(annotations_file)
+        self.img_annotations = pd.read_csv(annotations_file)
         self.img_dir = img_dir
         self.transform = transform
         self.target_transform = target_transform
 
+        # Create a mapping from string labels to integer IDs
+        unique_labels = self.img_annotations["identity"].unique()
+        self.labels = {
+            label: torch.tensor(idx) for idx, label in enumerate(unique_labels)
+        }
+
     def __len__(self):
-        return len(self.img_labels)
+        return len(self.img_annotations)
 
     def __getitem__(self, idx):
-
-        img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx]["file_name"])
+        img_path = os.path.join(
+            self.img_dir, self.img_annotations.iloc[idx]["file_name"]
+        )
+        text_label = self.img_annotations.iloc[idx]["identity"]
         # image = decode_image(img_path)
         image = Image.open(img_path).convert("RGB")
-        label = self.img_labels.iloc[idx]["identity"]
+        label = self.labels[text_label]
+        text_label = self.img_annotations.iloc[idx]["identity"]
 
         if self.transform:
             image = self.transform(image)
@@ -31,4 +40,4 @@ class SeaTurtleDataset(Dataset):
         if self.target_transform:
             label = self.target_transform(label)
 
-        return image, label
+        return image, label, text_label
