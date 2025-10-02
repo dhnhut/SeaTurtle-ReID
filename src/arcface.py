@@ -4,18 +4,17 @@ import torch.nn as nn
 import math
 
 
-class ArcFaceLoss(nn.Module):
+class ArcFace(nn.Module):
     def __init__(
-        self, in_features, out_features, margin=0.5, scale=64.0, easy_margin=False
+        self, num_classes, embedding_size, margin=0.5, scale=64.0, easy_margin=False
     ):
-        super(ArcFaceLoss, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
+        super(ArcFace, self).__init__()
+        self.num_classes = num_classes
+        self.embedding_size = embedding_size
         self.margin = margin
         self.scale = scale
         self.easy_margin = easy_margin
-
-        self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features))
+        self.weight = nn.Parameter(torch.Tensor(num_classes, embedding_size))
         nn.init.xavier_uniform_(self.weight)
 
         self.cos_m = math.cos(margin)
@@ -24,7 +23,6 @@ class ArcFaceLoss(nn.Module):
         self.mm = math.sin(math.pi - margin) * margin
 
     def forward(self, input, labels):
-        print(input.shape, labels.shape)
         cosine = torch.nn.functional.linear(
             torch.nn.functional.normalize(input),
             torch.nn.functional.normalize(self.weight),

@@ -16,10 +16,7 @@ class SeaTurtleDataset(Dataset):
         self.target_transform = target_transform
 
         # Create a mapping from string labels to integer IDs
-        unique_labels = self.img_annotations["identity"].unique()
-        self.labels = {
-            label: torch.tensor(idx) for idx, label in enumerate(unique_labels)
-        }
+        self.labels = self.img_annotations["label"].unique()
 
     def __len__(self):
         return len(self.img_annotations)
@@ -31,8 +28,8 @@ class SeaTurtleDataset(Dataset):
         text_label = self.img_annotations.iloc[idx]["identity"]
         # image = decode_image(img_path)
         image = Image.open(img_path).convert("RGB")
-        label = self.labels[text_label]
-        text_label = self.img_annotations.iloc[idx]["identity"]
+        label = self.img_annotations.iloc[idx]["label"]
+        identity = self.img_annotations.iloc[idx]["identity"]
 
         if self.transform:
             image = self.transform(image)
@@ -40,4 +37,4 @@ class SeaTurtleDataset(Dataset):
         if self.target_transform:
             label = self.target_transform(label)
 
-        return image, label, text_label
+        return image, label, identity
