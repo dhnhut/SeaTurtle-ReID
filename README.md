@@ -20,5 +20,6 @@ Implement the highest performance baseline model (ArcFace, Swim-B on full image)
 ### Source codes
 
 - [arcface-pytorch](https://github.com/ronghuaiyang/arcface-pytorch)
-- [Swin-B](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.swin_b.html#torchvision.models.swin_b)
+- [Swin-B (pytorch docs)](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.swin_b.html#torchvision.models.swin_b)
+- [Swin-Transformer (Microsoft github)](https://github.com/microsoft/Swin-Transformer)
 <!-- - [FaceNet: A Unified Embedding for Face Recognition and Clustering](https://arxiv.org/abs/1503.03832) -->

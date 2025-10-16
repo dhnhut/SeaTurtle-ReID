@@ -1,5 +1,6 @@
 # Project-specific ignores
 data/
+*.pth
 
 .DS_Store
 Thumbs.db
