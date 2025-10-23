@@ -23,3 +23,25 @@ Implement the highest performance baseline model (ArcFace, Swim-B on full image)
 - [Swin-B (pytorch docs)](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.swin_b.html#torchvision.models.swin_b)
 - [Swin-Transformer (Microsoft github)](https://github.com/microsoft/Swin-Transformer)
 <!-- - [FaceNet: A Unified Embedding for Face Recognition and Clustering](https://arxiv.org/abs/1503.03832) -->
+
+
+### SEEM
+
+```(sh)
+# Clone the SEEM repository
+cd libs
+git clone https://github.com/UX-Decoder/Segment-Everything-Everywhere-All-At-Once.git
+cd Segment-Everything-Everywhere-All-At-Once
+
+# Install dependencies
+pip install torch torchvision
+pip install git+https://github.com/cocodataset/panopticapi.git
+pip install -r requirements.txt
+
+https://github.com/UX-Decoder/Segment-Everything-Everywhere-All-At-Once/blob/v1.0/assets/readmes/INSTALL.md
+
+```
+
+https://www.youtube.com/watch?v=TxT6GfVHZAg
+https://github.com/UX-Decoder/Segment-Everything-Everywhere-All-At-Once?tab=readme-ov-file
+https://github.com/UX-Decoder/Semantic-SAM?tab=readme-ov-file
