@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from pathlib import Path
@@ -62,6 +63,18 @@ class SeaTurtleDataset(Dataset):
             self.labels_map
         ).astype(int)
 
+def metadata_path(dataset_dir):
+    return os.path.join(dataset_dir, "turtles-data/data/metadata.csv")
+
+def metadata_splits_path(dataset_dir):
+    return os.path.join(dataset_dir, "turtles-data/data/metadata_splits.csv")
+
+def annotations_path(dataset_dir):
+    return os.path.join(dataset_dir, "turtles-data/data/annotations.json")
+
+def images_path(dataset_dir):
+    return os.path.join(dataset_dir, "turtles-data/data")
+
 def download_dataset():
     path = kagglehub.dataset_download('wildlifedatasets/seaturtleid2022')
 
@@ -69,30 +82,28 @@ def download_dataset():
     
     return {
         'path': path,
-        'images_path': f'{path}/turtles-data/data',
-        'annotations_path': f'{path}/turtles-data/data/annotations.json',
-        'metadata': f'{path}/turtles-data/data/metadata.csv',
-        'metadata_splits': f'{path}/turtles-data/data/metadata_splits.csv'
+        'images_path': images_path(path),
+        'annotations_path': annotations_path(path),
+        'metadata': metadata_path(path),
+        'metadata_splits': metadata_splits_path(path)
     }
 
 
-def get_subset_data(metadata_splits_path
-                    , n_individuals, min_encounters, out_dir, seed=42):
-    df = pd.read_csv(metadata_splits_path)
+def get_subset_data(path, 
+                    n_individuals, min_encounters, out_dir, seed=42):
 
+    df = pd.read_csv(metadata_splits_path(path))
+    
     df_identity = df.groupby(['identity'])['date']\
         .nunique().sort_values(ascending=False)
-
     identity_ids = df_identity[df_identity >= min_encounters]\
         .sample(n=n_individuals, random_state=seed).index.tolist()
-
     df = df[df['identity'].isin(identity_ids)]
     
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-
     df.to_csv(f'{out_dir}/metadata.csv', index=False)
-    
-    
+
+    _create_annotations_file(df, annotations_path(path), out_dir)
 
     return df
 
@@ -132,3 +143,26 @@ def _get_sets(group, set, n_encounters):
         set_dates = set_group['date'].unique()[:n_encounters]
         set_images = set_group[set_group['date'].isin(set_dates)]
         return set_images
+
+def _create_annotations_file(df, annotations_path, out_dir):
+    # keys: ['licenses', 'info', 'categories', 'images', 'annotations']
+    with open(annotations_path, "r") as f:
+        annotations = json.load(f)
+
+    identity_ids = df['identity'].unique().tolist()
+    filtered_images = [
+        img for img in annotations['images'] if img['identity'] in identity_ids
+    ]
+
+    filtered_annotations = [
+        ann for ann in annotations['annotations'] 
+            if ann['image_id'] in df['id'].values
+    ]
+
+    annotations['images'] = filtered_images
+    
+    annotations['annotations'] = filtered_annotations
+
+    output_path = os.path.join(out_dir, "annotations.json")
+    with open(output_path, "w") as f:
+        json.dump(annotations, f)
