@@ -41,14 +41,23 @@ class SeaTurtleDataset(Dataset):
         return image, label, identity
     
     def map_identity(self):
-        self.labels = self.img_annotations["identity"].unique()
+        self.labels = list(self.img_annotations["identity"].unique())
         
-        prog = re.compile(r'(\d+)')
+        # prog = re.compile(r'(\d+)')
+        # self.labels_map = {
+        #     identity: int(prog.search(identity).group(1))
+        #     for identity in self.labels
+        # }
+        
+        # self.img_annotations["label"] = self.img_annotations["identity"].map(
+        #     self.labels_map
+        # ).astype(int)
+        
         self.labels_map = {
-            identity: int(prog.search(identity).group(1))
+            identity: self.labels.index(identity)
             for identity in self.labels
         }
-        
+
         self.img_annotations["label"] = self.img_annotations["identity"].map(
             self.labels_map
         ).astype(int)
@@ -100,7 +109,7 @@ def closed_set_spliting(df, out_dir, train_encounters=2
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     df.to_csv(f'{out_dir}/metadata_closed_set_split.csv', index=False)
     
-    for set_name in ['train', 'eval', 'test']:
+    for set_name in ['train', 'valid', 'test']:
         df[df['split_closed'] == set_name].to_csv(
             f'{out_dir}/metadata_closed_set_splits_{set_name}.csv', index=False)
     
