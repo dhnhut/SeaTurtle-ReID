@@ -38,15 +38,15 @@ class SeaTurtleDataset(Dataset):
         mask = None
         if self.coco is not None:
             mask = self.get_image_mask(image_id)  # Shape: (H, W)
-            # if self.transform is not None:
-            #     mask = self.transform(mask).long()
-
-        
 
         # segment body, head, flippers by coco mask
         body_arr = image_arr * (mask == 1)[:, :, None]
         flipper_arr = image_arr * (mask == 2)[:, :, None]
         head_arr = image_arr * (mask == 3)[:, :, None]
+        
+        body_arr = self._crop_to_content(body_arr)
+        flipper_arr = self._crop_to_content(flipper_arr)
+        head_arr = self._crop_to_content(head_arr)
 
         if self.transform:
             image_arr = self.transform(image=image_arr)['image']            
@@ -65,6 +65,21 @@ class SeaTurtleDataset(Dataset):
             "head_arr": head_arr,
             "flipper_arr": flipper_arr,
         }
+    
+    def _crop_to_content(self, img_arr):
+        """Crop image to bounding box of non-zero pixels"""
+        # Find where the image is not black
+        mask = img_arr.sum(axis=2) > 0  # Sum across RGB channels
+        if not mask.any():
+            return img_arr  # Return original if all black
+        
+        # Find bounding box
+        rows = mask.any(axis=1)
+        cols = mask.any(axis=0)
+        rmin, rmax = rows.argmax(), len(rows) - rows[::-1].argmax()
+        cmin, cmax = cols.argmax(), len(cols) - cols[::-1].argmax()
+        
+        return img_arr[rmin:rmax, cmin:cmax]
     
     def map_identity(self):
         self.labels = list(self.metadata["identity"].unique())
