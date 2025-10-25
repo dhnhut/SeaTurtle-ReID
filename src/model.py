@@ -16,29 +16,11 @@ class WeightedPartsSwinBModel(nn.Module):
         # Learnable weights for each part (body, flipper, head)
         self.part_weights = nn.Parameter(torch.ones(num_parts))
         
-        # Use Swin-B
+        # Use Swin-B with standard 3 channels
         base_model = models.swin_b(weights=models.Swin_B_Weights.IMAGENET1K_V1)
         
-        # 9 channels (3 parts × 3 RGB channels)
-        old_conv = base_model.features[0][0]
-        self.first_conv = nn.Conv2d(
-            9,  # 9 input channels
-            old_conv.out_channels,
-            kernel_size=old_conv.kernel_size,
-            stride=old_conv.stride,
-            padding=old_conv.padding
-        )
-        
-        # Initialize new conv weights: average pretrained weights across input channels
-        with torch.no_grad():
-            # Repeat weights 3 times for 9 channels
-            self.first_conv.weight = nn.Parameter(
-                old_conv.weight.repeat(1, 3, 1, 1) / 3
-            )
-            self.first_conv.bias = old_conv.bias
-        
-        # Use rest of Swin architecture
-        self.features = nn.Sequential(*list(base_model.features.children())[1:])
+        # Use full Swin architecture (no modification needed for input channels)
+        self.features = base_model.features
         self.norm = base_model.norm
         self.permute = base_model.permute
         self.avgpool = base_model.avgpool
@@ -50,15 +32,15 @@ class WeightedPartsSwinBModel(nn.Module):
     def forward(self, parts_arr):
         # parts_arr shape: (B, 9, H, W)
         # Split into 3 parts: body (0:3), flipper (3:6), head (6:9)
-        body = parts_arr[:, 0:3, :, :] * self.part_weights[0]
-        flipper = parts_arr[:, 3:6, :, :] * self.part_weights[1]
-        head = parts_arr[:, 6:9, :, :] * self.part_weights[2]
+        body = parts_arr[:, 0:3, :, :]
+        flipper = parts_arr[:, 3:6, :, :]
+        head = parts_arr[:, 6:9, :, :]
         
-        # Recombine weighted parts
-        x = torch.cat([body, flipper, head], dim=1)
+        # Apply learnable weights and combine
+        # Each part contributes to the final 3-channel input
+        x = body * self.part_weights[0] + flipper * self.part_weights[1] + head * self.part_weights[2]
         
         # Forward through Swin-B
-        x = self.first_conv(x)
         x = self.features(x)
         x = self.norm(x)
         x = self.permute(x)
