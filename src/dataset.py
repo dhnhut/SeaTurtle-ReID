@@ -44,6 +44,11 @@ class SeaTurtleDataset(Dataset):
         flipper_arr = image_arr * (mask == 2)[:, :, None]
         head_arr = image_arr * (mask == 3)[:, :, None]
         
+        # Combine all parts into a single image (union of all masks)
+        turtle_mask = (mask == 1) | (mask == 2) | (mask == 3)  # Body OR Flipper OR Head
+        turtle_arr = image_arr * turtle_mask[:, :, None]
+        turtle_arr = self._crop_to_content(turtle_arr)
+        
         body_arr = self._crop_to_content(body_arr)
         flipper_arr = self._crop_to_content(flipper_arr)
         head_arr = self._crop_to_content(head_arr)
@@ -53,6 +58,9 @@ class SeaTurtleDataset(Dataset):
             body_arr = self.transform(image=body_arr)['image']
             head_arr = self.transform(image=head_arr)['image']
             flipper_arr = self.transform(image=flipper_arr)['image']
+            turtle_arr = self.transform(image=turtle_arr)['image']
+
+        weighted_parts_arr = torch.cat([body_arr, flipper_arr, head_arr], dim=0)
 
         # return image, label, identity, mask_tensor
         return {
@@ -64,6 +72,8 @@ class SeaTurtleDataset(Dataset):
             "body_arr": body_arr,
             "head_arr": head_arr,
             "flipper_arr": flipper_arr,
+            "turtle_arr": turtle_arr,
+            "weighted_parts_arr": weighted_parts_arr
         }
     
     def _crop_to_content(self, img_arr):
