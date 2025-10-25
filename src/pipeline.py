@@ -52,6 +52,7 @@ class TurtleReIdPipeline():
         self.num_classes = len(self.train_dataset.metadata['identity'].unique())
 
     def train(self, configs):
+        target_part = f"{configs['target_part']}_arr"
         batch_size = configs['batch_size']
         learning_rate = configs['learning_rate']
         epochs = configs['epochs']
@@ -88,10 +89,10 @@ class TurtleReIdPipeline():
             progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
 
             for i, item in enumerate(progress_bar):
-                image_arr, labels = item['image_arr'].to(self.device), item['label'].to(self.device)
+                target_arr, labels = item[target_part].to(self.device), item['label'].to(self.device)
 
                 # Forward pass
-                features = self.model(image_arr)
+                features = self.model(target_arr)
                 output = metric(features, labels)
                 loss = criterion(output, labels)
 
@@ -117,9 +118,9 @@ class TurtleReIdPipeline():
             gallery_labels = []
             with torch.no_grad():
                 for item in train_loader:
-                    image_arr = item['image_arr'].to(self.device)
+                    target_arr = item[target_part].to(self.device)
                     labels = item['label']
-                    embeddings = self.model(image_arr)
+                    embeddings = self.model(target_arr)
                     embeddings = nn.functional.normalize(embeddings, p=2, dim=1)
                     gallery_embeddings.append(embeddings.cpu())
                     gallery_labels.append(labels)
@@ -130,9 +131,9 @@ class TurtleReIdPipeline():
             # Evaluate on eval set
             with torch.no_grad():
                 for item in eval_loader:
-                    image_arr = item['image_arr'].to(self.device)
+                    target_arr = item[target_part].to(self.device)
                     labels = item['label'].to(self.device)
-                    embeddings = self.model(image_arr)
+                    embeddings = self.model(target_arr)
                     embeddings = nn.functional.normalize(embeddings, p=2, dim=1)
                     
                     # Compute cosine similarity with gallery
@@ -156,6 +157,5 @@ class TurtleReIdPipeline():
                 best_acc = epoch_acc
                 torch.save(self.model.state_dict(), model_save_path)
                 print("Saved best model.")
-
 
         print(f"Finished Training. Best Test Accuracy: {best_acc:.2f}%")
