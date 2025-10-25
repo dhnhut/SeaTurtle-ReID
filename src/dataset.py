@@ -29,41 +29,41 @@ class SeaTurtleDataset(Dataset):
         img_path = os.path.join(
             self.img_dir, self.metadata.iloc[idx]["file_name"]
         )
-        
-        image = Image.open(img_path)
+
+        image_arr = np.array(Image.open(img_path))
         image_id = self.metadata.iloc[idx]["id"]
         label = self.metadata.iloc[idx]["label"]
         identity = self.metadata.iloc[idx]["identity"]
         
         mask = None
         if self.coco is not None:
-            mask = self.get_image_mask(image_id, self.coco)  # Shape: (H, W)
+            mask = self.get_image_mask(image_id)  # Shape: (H, W)
             # if self.transform is not None:
             #     mask = self.transform(mask).long()
 
         
 
         # segment body, head, flippers by coco mask
-        body_arr = image * (mask == 1)[:, :, None]
-        flipper_arr = image * (mask == 2)[:, :, None]
-        head_arr = image * (mask == 3)[:, :, None]
+        body_arr = image_arr * (mask == 1)[:, :, None]
+        flipper_arr = image_arr * (mask == 2)[:, :, None]
+        head_arr = image_arr * (mask == 3)[:, :, None]
 
         if self.transform:
-            image = self.transform(image)
-            body_arr = self.transform(body_arr)
-            head_arr = self.transform(head_arr)
-            flipper_arr = self.transform(flipper_arr)
+            image_arr = self.transform(image=image_arr)['image']            
+            body_arr = self.transform(image=body_arr)['image']
+            head_arr = self.transform(image=head_arr)['image']
+            flipper_arr = self.transform(image=flipper_arr)['image']
 
         # return image, label, identity, mask_tensor
         return {
             "image_id": image_id,
+            "img_path": img_path,
             "label": label,
             "identity": identity,
-            "image": image,
+            "image_arr": image_arr,
             "body_arr": body_arr,
             "head_arr": head_arr,
             "flipper_arr": flipper_arr,
-            "mask": mask,
         }
     
     def map_identity(self):
@@ -77,16 +77,16 @@ class SeaTurtleDataset(Dataset):
         self.metadata["label"] = self.metadata["identity"].map(
             self.labels_map
         ).astype(int)
-        
-    def get_image_mask(self, image_id, coco):
-        cat_ids = coco.getCatIds()
-        ann_ids = coco.getAnnIds(imgIds=image_id, catIds=cat_ids, iscrowd=None)
-        anns = coco.loadAnns(ann_ids)
+
+    def get_image_mask(self, image_id):
+        cat_ids = self.coco.getCatIds()
+        ann_ids = self.coco.getAnnIds(imgIds=image_id, catIds=cat_ids, iscrowd=None)
+        anns = self.coco.loadAnns(ann_ids)
         # Initialize mask with image height/width
-        img_info = coco.imgs[image_id]
+        img_info = self.coco.imgs[image_id]
         mask = np.zeros((img_info['height'], img_info['width']), dtype=int)
         for ann in anns:
-            submask = coco.annToMask(ann)  # Get single annotation mask
+            submask = self.coco.annToMask(ann)  # Get single annotation mask
             mask = np.maximum(mask, submask * ann['category_id'])  # Merge masks
         return mask
 
