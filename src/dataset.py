@@ -1,67 +1,94 @@
 import json
 import os
-import re
 from pathlib import Path
 import pandas as pd
+import numpy as np
 from PIL import Image
 import kagglehub
 import torch
 from torch.utils.data import Dataset
+from pycocotools.coco import COCO
 
 
 class SeaTurtleDataset(Dataset):
     def __init__(
-        self, annotations_file, img_dir, transform=None, target_transform=None
-    ):
-        self.img_annotations = pd.read_csv(annotations_file)
+            self, metadata_path, annotations_path, img_dir,
+            coco=None, transform=None
+        ):
+        self.metadata = pd.read_csv(metadata_path)
         self.img_dir = img_dir
         self.transform = transform
-        self.target_transform = target_transform
-        
+        self.coco = COCO(annotations_path)
+
         self.map_identity()
 
     def __len__(self):
-        return len(self.img_annotations)
+        return len(self.metadata)
 
     def __getitem__(self, idx):
         img_path = os.path.join(
-            self.img_dir, self.img_annotations.iloc[idx]["file_name"]
+            self.img_dir, self.metadata.iloc[idx]["file_name"]
         )
-        # text_label = self.img_annotations.iloc[idx]["identity"]
-        # image = decode_image(img_path)
-        image = Image.open(img_path).convert("RGB")
-        label = self.img_annotations.iloc[idx]["label"]
-        identity = self.img_annotations.iloc[idx]["identity"]
+        
+        image = Image.open(img_path)
+        image_id = self.metadata.iloc[idx]["id"]
+        label = self.metadata.iloc[idx]["label"]
+        identity = self.metadata.iloc[idx]["identity"]
+        
+        mask = None
+        if self.coco is not None:
+            mask = self.get_image_mask(image_id, self.coco)  # Shape: (H, W)
+            # if self.transform is not None:
+            #     mask = self.transform(mask).long()
+
+        
+
+        # segment body, head, flippers by coco mask
+        body_arr = image * (mask == 1)[:, :, None]
+        flipper_arr = image * (mask == 2)[:, :, None]
+        head_arr = image * (mask == 3)[:, :, None]
 
         if self.transform:
             image = self.transform(image)
+            body_arr = self.transform(body_arr)
+            head_arr = self.transform(head_arr)
+            flipper_arr = self.transform(flipper_arr)
 
-        if self.target_transform:
-            label = self.target_transform(label)
-
-        return image, label, identity
+        # return image, label, identity, mask_tensor
+        return {
+            "image_id": image_id,
+            "label": label,
+            "identity": identity,
+            "image": image,
+            "body_arr": body_arr,
+            "head_arr": head_arr,
+            "flipper_arr": flipper_arr,
+            "mask": mask,
+        }
     
     def map_identity(self):
-        self.labels = list(self.img_annotations["identity"].unique())
-        
-        # prog = re.compile(r'(\d+)')
-        # self.labels_map = {
-        #     identity: int(prog.search(identity).group(1))
-        #     for identity in self.labels
-        # }
-        
-        # self.img_annotations["label"] = self.img_annotations["identity"].map(
-        #     self.labels_map
-        # ).astype(int)
-        
+        self.labels = list(self.metadata["identity"].unique())
+
         self.labels_map = {
             identity: self.labels.index(identity)
             for identity in self.labels
         }
 
-        self.img_annotations["label"] = self.img_annotations["identity"].map(
+        self.metadata["label"] = self.metadata["identity"].map(
             self.labels_map
         ).astype(int)
+        
+    def get_image_mask(self, image_id, coco):
+        cat_ids = coco.getCatIds()
+        ann_ids = coco.getAnnIds(imgIds=image_id, catIds=cat_ids, iscrowd=None)
+        anns = coco.loadAnns(ann_ids)
+        # Initialize mask with image height/width
+        img_info = coco.imgs[image_id]
+        mask = np.zeros((img_info['height'], img_info['width']), dtype=int)
+        for ann in anns:
+            submask = coco.annToMask(ann)  # Get single annotation mask
+            mask = np.maximum(mask, submask * ann['category_id'])  # Merge masks
+        return mask
 
 def metadata_path(dataset_dir):
     return os.path.join(dataset_dir, "turtles-data/data/metadata.csv")
