@@ -10,11 +10,9 @@ import torchvision.models as models
 # from src.dataset import SeaTurtleDataset
 # from src.arcface import ArcFace
 
-class WeightedPartsSwinBModel(nn.Module):
-    def __init__(self, embedding_size, num_parts=3):
+class PartsSwinBModel(nn.Module):
+    def __init__(self, embedding_size):
         super().__init__()
-        # Learnable weights for each part (body, flipper, head)
-        self.part_weights = nn.Parameter(torch.ones(num_parts))
         
         # Use Swin-B with standard 3 channels
         base_model = models.swin_b(weights=models.Swin_B_Weights.IMAGENET1K_V1)
@@ -29,16 +27,20 @@ class WeightedPartsSwinBModel(nn.Module):
         # Custom head for embedding
         self.head = nn.Linear(base_model.head.in_features, embedding_size)
     
-    def forward(self, parts_arr):
-        # parts_arr shape: (B, 9, H, W)
+    def vectorize(self, parts_arr):
+        # x shape: (B, C, H, W)
         # Split into 3 parts: body (0:3), flipper (3:6), head (6:9)
         body = parts_arr[:, 0:3, :, :]
         flipper = parts_arr[:, 3:6, :, :]
         head = parts_arr[:, 6:9, :, :]
         
-        # Apply learnable weights and combine
-        # Each part contributes to the final 3-channel input
-        x = body * self.part_weights[0] + flipper * self.part_weights[1] + head * self.part_weights[2]
+        return self.combine_parts(body, flipper, head)
+    
+    def combine_parts(self, body, flipper, head):
+        return body + flipper + head
+        
+    def forward(self, parts_arr):
+        x = self.vectorize(parts_arr)
         
         # Forward through Swin-B
         x = self.features(x)
@@ -49,3 +51,23 @@ class WeightedPartsSwinBModel(nn.Module):
         x = self.head(x)
         
         return x
+    
+
+class WeightedPartsSwinBModel(PartsSwinBModel):
+    def __init__(self, embedding_size, weights=[1, 1, 1]):
+        super().__init__(embedding_size)
+        self.weights = weights
+    
+    def combine_parts(self, body, flipper, head):
+        return body * self.weights[0] + flipper * self.weights[1] + head * self.weights[2]
+
+
+class LearnableWeightedPartsSwinBModel(PartsSwinBModel):
+    def __init__(self, embedding_size, num_parts=3):
+        super().__init__(embedding_size)
+
+        # Learnable weights for each part (body, flipper, head)
+        self.part_weights = nn.Parameter(torch.ones(num_parts))
+        
+    def combine_parts(self, body, flipper, head):
+        return body * self.part_weights[0] + flipper * self.part_weights[1] + head * self.part_weights[2]
