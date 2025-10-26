@@ -1,14 +1,6 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
-# from torch.utils.data import DataLoader
-# import albumentations as A
-# from albumentations.pytorch import ToTensorV2
-
-# from tqdm.notebook import tqdm
-
-# from src.dataset import SeaTurtleDataset
-# from src.arcface import ArcFace
 
 class PartsSwinBModel(nn.Module):
     def __init__(self, embedding_size):
@@ -24,16 +16,11 @@ class PartsSwinBModel(nn.Module):
         self.avgpool = base_model.avgpool
         self.flatten = base_model.flatten
         
-        # # Custom head for embedding
-        # self.head = nn.Linear(base_model.head.in_features, embedding_size)
         # Separate heads for each part
         in_features = base_model.head.in_features
         self.body_head = nn.Linear(in_features, embedding_size)
         self.flipper_head = nn.Linear(in_features, embedding_size)
         self.head_head = nn.Linear(in_features, embedding_size)
-
-    def combine_parts(self, body_emb, flipper_emb, head_emb):
-        return body_emb + flipper_emb + head_emb
 
     def extract_features(self, x):
         x = self.features(x)
@@ -42,8 +29,9 @@ class PartsSwinBModel(nn.Module):
         x = self.avgpool(x)
         x = self.flatten(x)
         return x
-        
-    def forward(self, parts_arr):
+    
+    def get_part_embeddings(self, parts_arr):
+        """Extract embeddings for body, flipper, and head parts."""
         # Split parts
         body = parts_arr[:, 0:3, :, :]
         flipper = parts_arr[:, 3:6, :, :]
@@ -54,31 +42,58 @@ class PartsSwinBModel(nn.Module):
         flipper_emb = self.flipper_head(self.extract_features(flipper))
         head_emb = self.head_head(self.extract_features(head))
         
-        # Weight each embedding dimension separately
+        return body_emb, flipper_emb, head_emb
+        
+    def forward(self, parts_arr):
+        body_emb, flipper_emb, head_emb = self.get_part_embeddings(parts_arr)
+        
+        # Simple addition of embeddings
+        return body_emb + flipper_emb + head_emb
+    
+
+class WeightedPartsSwinBModel(PartsSwinBModel):
+    def __init__(self, embedding_size, part_weights=None):
+        super().__init__(embedding_size)
+        # Scalar weights for each part (body, flipper, head)
+        if part_weights is None:
+            part_weights = [1.0, 1.0, 1.0]
+        self.part_weights = torch.tensor(part_weights, dtype=torch.float32)
+    
+    def forward(self, parts_arr):
+        body_emb, flipper_emb, head_emb = self.get_part_embeddings(parts_arr)
+        
+        # Apply scalar weights to each part
+        weighted_body = body_emb * self.part_weights[0]
+        weighted_flipper = flipper_emb * self.part_weights[1]
+        weighted_head = head_emb * self.part_weights[2]
+
+        return weighted_body + weighted_flipper + weighted_head
+
+
+class LearnableWeightedPartsSwinBModel(PartsSwinBModel):
+    def __init__(self, embedding_size, num_parts=3, per_dimension=True):
+        super().__init__(embedding_size)
+        
+        # Learnable weights for each part (body, flipper, head)
+        if per_dimension:
+            # Per-dimension weights: shape [num_parts, embedding_size]
+            # Each dimension of each part embedding can have different importance
+            self.part_weights = nn.Parameter(torch.ones(num_parts, embedding_size))
+        else:
+            # Scalar weights: shape [num_parts]
+            # One weight per part (simpler but less expressive)
+            self.part_weights = nn.Parameter(torch.ones(num_parts))
+        
+        self.per_dimension = per_dimension
+    
+    def forward(self, parts_arr):
+        body_emb, flipper_emb, head_emb = self.get_part_embeddings(parts_arr)
+        
+        # Apply learnable weights (works for both per_dimension=True/False)
+        # Broadcasting handles both cases automatically
         weighted_body = body_emb * self.part_weights[0]
         weighted_flipper = flipper_emb * self.part_weights[1]
         weighted_head = head_emb * self.part_weights[2]
         
-        # Combine weighted embeddings
-        return weighted_body + weighted_flipper + weighted_head
-    
-
-class WeightedPartsSwinBModel(PartsSwinBModel):
-    def __init__(self, embedding_size, part_weights=[1, 1, 1]):
-        super().__init__(embedding_size)
-        self.part_weights = part_weights
-    
-    def combine_parts(self, body_emb, flipper_emb, head_emb):
-        weighted_body = body_emb * self.part_weights[0]
-        weighted_flipper = flipper_emb * self.part_weights[1]
-        weighted_head = head_emb * self.part_weights[2]
-
         return weighted_body + weighted_flipper + weighted_head
 
-
-class LearnableWeightedPartsSwinBModel(WeightedPartsSwinBModel):
-    def __init__(self, embedding_size, num_parts=3):
-        # Learnable weights for each part (body, flipper, head)
-        self.part_weights = nn.Parameter(torch.ones(num_parts))
-
-        super().__init__(embedding_size, part_weights=self.part_weights)
