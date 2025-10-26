@@ -10,20 +10,11 @@ from tqdm.notebook import tqdm
 
 from src.dataset import SeaTurtleDataset
 from src.arcface import ArcFace
-from src.model import WeightedPartsSwinBModel
 
 class TurtleReIdPipeline():
-    def __init__(self, device, embedding_size, use_weighted_parts=False):
+    def __init__(self, device, embedding_size, model):
         self.device = device
         self.embedding_size = embedding_size
-        self.use_weighted_parts = use_weighted_parts
-
-        if use_weighted_parts:
-            model = WeightedPartsSwinBModel(embedding_size=self.embedding_size)
-        else:
-            model = models.swin_b(weights=models.Swin_B_Weights.IMAGENET1K_V1)
-            model.head = nn.Linear(model.head.in_features, self.embedding_size)
-        
         self.model = model.to(device)
 
     def set_transforms(self, img_size):

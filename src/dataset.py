@@ -53,7 +53,7 @@ class SeaTurtleDataset(Dataset):
         flipper_arr = self._crop_to_content(flipper_arr)
         head_arr = self._crop_to_content(head_arr)
 
-        weighted_parts_arr = None
+        parts_arr = None
         if self.transform:
             image_arr = self.transform(image=image_arr)['image']            
             body_arr = self.transform(image=body_arr)['image']
@@ -61,7 +61,7 @@ class SeaTurtleDataset(Dataset):
             flipper_arr = self.transform(image=flipper_arr)['image']
             turtle_arr = self.transform(image=turtle_arr)['image']
             # After transform, arrays should be tensors in (C, H, W) format
-            weighted_parts_arr = torch.cat([body_arr, flipper_arr, head_arr], dim=0)
+            parts_arr = torch.cat([body_arr, flipper_arr, head_arr], dim=0)
 
         return {
             "image_id": image_id,
@@ -73,7 +73,7 @@ class SeaTurtleDataset(Dataset):
             "head_arr": head_arr,
             "flipper_arr": flipper_arr,
             "turtle_arr": turtle_arr,
-            "weighted_parts_arr": weighted_parts_arr
+            "parts_arr": parts_arr
         }
     
     def _crop_to_content(self, img_arr):
