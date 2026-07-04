@@ -2,7 +2,27 @@
 
 Implement the highest performance baseline model (ArcFace, Swim-B on full image) for closed-set Sea Turtle Individual Re-Identification, from [the paper](https://arxiv.org/abs/2211.10307).
 
-## Setup
+![Architecture](./resources/architecture.png "Architecture")
+
+
+## Result
+
+> Due to computational limitations, we trained the model on only a fraction of the original dataset, allowing it to achieve sufficient accuracy for the task demonstration.
+
+
+
+### Argumentation demo
+This technique allow generating more data when the training size is limited
+![Argumentation](./resources/argumentation.png "Argumentation")
+
+### Segmentation demo
+
+Demonstrate how model segment Turtle on the Test set
+
+![Segmentation](./resources/Segmentation.png "Segmentation")
+
+
+## Re-produce trained data
 
 1. Download and extract data from [SeaTurtleID2022](https://www.kaggle.com/datasets/wildlifedatasets/seaturtleid2022/data)
 2. Copy only relate files and folders as following to `data` folder
