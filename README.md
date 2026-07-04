@@ -9,6 +9,10 @@ Implement the highest performance baseline model (ArcFace, Swim-B on full image)
 
 > Due to computational limitations, we trained the model on only a fraction of the original dataset, allowing it to achieve sufficient accuracy for the task demonstration.
 
+| Model | Accuracy |
+| --- | ---: |
+| Baseline | 67.07% |
+| Proposed | 84.15% |
 
 
 ### Argumentation demo
